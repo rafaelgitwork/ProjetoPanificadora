@@ -1,0 +1,20 @@
+:root{font-family:system-ui,sans-serif;color:#332118;background:#faf2e7;line-height:1.55}
+*{box-sizing:border-box}
+body{margin:0}
+header{padding:2rem max(1rem,calc((100% - 68rem)/2));color:#fff5e9;background:#713b24}
+header h1{font-family:Georgia,serif;font-size:clamp(2rem,6vw,3.5rem);margin:.2rem 0}
+header p{margin:0}
+header small{letter-spacing:.13em;font-weight:700}
+main{max-width:70rem;margin:auto;padding:1rem}
+section{background:#fffdf8;border:1px solid #e1d1c0;border-radius:1rem;padding:1.25rem;margin:1rem 0}
+h2,h3{margin:.25rem 0 .65rem}
+form{display:grid;gap:.6rem;max-width:35rem}
+label{display:grid;gap:.2rem;font-weight:600}
+input,select,button{font:inherit;padding:.5rem .65rem;border:1px solid #ac9380;border-radius:.45rem}
+button{background:#713b24;color:white;cursor:pointer;width:fit-content}
+button:disabled{opacity:.6;cursor:wait}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:1rem;margin-bottom:1rem}
+article{border-top:1px solid #e1d1c0;padding:.8rem 0}
+#mensagem{min-height:1.6rem;color:#713b24;font-weight:650}
+#itens{margin:0}
+li button{margin-left:.5rem}
