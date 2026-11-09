@@ -147,6 +147,7 @@ else
         ocupado = true;
         mensagem = "";
         erro = false;
+        await InvokeAsync(StateHasChanged);
         try { await acao(); }
         catch (HttpRequestException ex)
         {
@@ -155,6 +156,10 @@ else
             mensagem = ex.Message;
         }
         catch (Exception ex) { erro = true; mensagem = ex.Message; }
-        finally { ocupado = false; }
+        finally
+        {
+            ocupado = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 }

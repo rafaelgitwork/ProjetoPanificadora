@@ -1,5 +1,7 @@
 # Panificadora do Rafael
 
+Projeto acadêmico individual de Rafael ([rafaelgitwork](https://github.com/rafaelgitwork)).
+
 Sistema B2B para uma distribuidora de insumos de panificação. O vendedor consulta a carteira, segue o roteiro e registra clientes e pedidos em campo. A distribuidora decide as quantidades a liberar, controla lotes, registra o faturamento e acompanha os recebimentos.
 
 ## Estrutura
@@ -41,6 +43,8 @@ Use o SDK .NET 10, a carga de trabalho MAUI e uma instância MySQL. Crie o banco
    ```powershell
    dotnet build Panificadora.App -t:Run -f net10.0-windows10.0.19041.0
    ```
+
+Para testar no emulador Android com a API rodando no mesmo computador, use `adb reverse tcp:5100 tcp:5100` e informe `http://localhost:5100/` na tela de acesso. Para acessar a API em outro computador, use HTTPS.
 
 ## Testes
 
