@@ -3,58 +3,119 @@
 @inject ClienteApi Api
 
 <PageTitle>Panificadora do Rafael | Distribuidora</PageTitle>
-<header><small>PAINEL DA DISTRIBUIDORA</small><h1>Panificadora do Rafael</h1></header>
-<main>
-    @if (painel is null)
-    {
-        <section>
-            <h2>Acesso da gestão</h2>
-            <form @onsubmit="Entrar" @onsubmit:preventDefault>
-                <label>E-mail <input type="email" required @bind="email" /></label>
-                <label>Senha <input type="password" required @bind="senha" /></label>
-                <button disabled="@ocupado">Entrar</button>
-            </form>
-        </section>
-    }
-    else
-    {
-        <nav aria-label="Módulos">
-            @foreach (var modulo in modulos)
-            {
-                <button class="@(aba == modulo ? "selecionado" : "")" @onclick="() => aba = modulo">@modulo</button>
-            }
-            <button @onclick="() => Executar(Atualizar)" disabled="@ocupado">Atualizar</button>
-            <button @onclick="Sair">Sair</button>
-        </nav>
-    }
-    <p role="status">@mensagem</p>
-    @if (painel is not null)
-    {
-        <fieldset disabled="@ocupado">
-            @switch (aba)
-            {
-                case "Cadastros":
-                    <Cadastros Dados="painel" Salvar="Salvar" />
-                    break;
-                case "Estoque":
-                    <Estoque Dados="painel" Salvar="Salvar" />
-                    break;
-                case "Pedidos":
-                    <Pedidos Dados="painel" Salvar="Salvar" />
-                    break;
-                case "Financeiro":
-                    <Financeiro Dados="painel" Salvar="Salvar" />
-                    break;
-            }
-        </fieldset>
-    }
-</main>
+@if (painel is null)
+{
+    <main class="login">
+        <div class="login-brand">
+            <div class="brand"><span class="brand-mark"><IconeMarca /></span><div>Panificadora do Rafael<small>DISTRIBUIDORA B2B</small></div></div>
+            <div class="login-copy">
+                <span class="eyebrow">DA CARTEIRA À ENTREGA</span>
+                <h1>Gestão da distribuidora</h1>
+                <p>Acompanhe pedidos, lotes e recebimentos em um só painel.</p>
+            </div>
+            <div class="login-art" aria-hidden="true"><IconeMarca /></div>
+        </div>
+        <div class="login-main">
+            <section class="login-card">
+                <span class="eyebrow">ACESSO ADMINISTRATIVO</span>
+                <h2>Entre na sua conta</h2>
+                <p>Use as credenciais da gestão.</p>
+                <form @onsubmit="Entrar" @onsubmit:preventDefault>
+                    <label>E-mail <input type="email" autocomplete="username" placeholder="gestao@empresa.com.br" required @bind="email" /></label>
+                    <label>Senha <input type="password" autocomplete="current-password" required @bind="senha" /></label>
+                    <button disabled="@ocupado">@(ocupado ? "Entrando…" : "Entrar no painel")</button>
+                </form>
+                @if (!string.IsNullOrEmpty(mensagem)) { <p class="feedback erro" role="status">@mensagem</p> }
+            </section>
+        </div>
+    </main>
+}
+else
+{
+    <div class="console">
+        <aside class="sidebar">
+            <div class="brand"><span class="brand-mark"><IconeMarca /></span><div>Panificadora do Rafael<small>DISTRIBUIDORA B2B</small></div></div>
+            <nav aria-label="Módulos">
+                <span class="nav-label">OPERAÇÃO</span>
+                @foreach (var modulo in modulos)
+                {
+                    <button class="nav-item @(aba == modulo ? "selecionado" : "")" aria-current="@(aba == modulo ? "page" : null)" @onclick="() => aba = modulo">
+                        <IconePainel Nome="@Icone(modulo)" /> @modulo
+                    </button>
+                }
+            </nav>
+            <div class="sidebar-footer">
+                <span class="avatar">G</span><div><strong>Gestão</strong><small>Painel administrativo</small></div>
+                <button class="sair" @onclick="Sair">Sair</button>
+            </div>
+        </aside>
+        <main class="workspace">
+            <header class="workspace-header">
+                <div><span class="eyebrow">PAINEL ADMINISTRATIVO</span><h1>@aba</h1><p>@Descricao(aba)</p></div>
+                <button class="secundario" @onclick="() => Executar(Atualizar)" disabled="@ocupado"><IconePainel Nome="refresh" /> Atualizar dados</button>
+            </header>
+            @if (!string.IsNullOrEmpty(mensagem)) { <p class="feedback @(erro ? "erro" : "")" role="status">@mensagem</p> }
+            <fieldset disabled="@ocupado" aria-label="@aba">
+                @switch (aba)
+                {
+                    case "Visão geral":
+                        <div class="metricas">
+                            <div class="metrica"><span class="metrica-icone"><IconePainel Nome="orders" /></span><span>Pedidos a revisar</span><strong>@painel.Pedidos.Count(p => p.Situacao == "Recebido")</strong></div>
+                            <div class="metrica"><span class="metrica-icone"><IconePainel Nome="box" /></span><span>Lotes com saldo físico</span><strong>@painel.Lotes.Count(l => l.Fisico > 0)</strong></div>
+                            <div class="metrica"><span class="metrica-icone"><IconePainel Nome="users" /></span><span>Clientes ativos</span><strong>@painel.Clientes.Count(c => c.Ativo)</strong></div>
+                            <div class="metrica"><span class="metrica-icone"><IconePainel Nome="wallet" /></span><span>Principal em aberto</span><strong>@Numero(painel.Titulos.Sum(t => t.Valor - t.PrincipalPago))</strong></div>
+                        </div>
+                        <section class="atalhos">
+                            <h2>Módulos de trabalho</h2>
+                            <div class="atalhos-grid">
+                                @foreach (var modulo in modulos.Skip(1))
+                                {
+                                    <button class="atalho" @onclick="() => aba = modulo">
+                                        <span class="metrica-icone"><IconePainel Nome="@Icone(modulo)" /></span>
+                                        <span><strong>@modulo</strong><small>@Descricao(modulo)</small></span><span aria-hidden="true">→</span>
+                                    </button>
+                                }
+                            </div>
+                        </section>
+                        break;
+                    case "Cadastros":
+                        <Cadastros Dados="painel" Salvar="Salvar" />
+                        break;
+                    case "Estoque":
+                        <Estoque Dados="painel" Salvar="Salvar" />
+                        break;
+                    case "Pedidos":
+                        <Pedidos Dados="painel" Salvar="Salvar" />
+                        break;
+                    case "Financeiro":
+                        <Financeiro Dados="painel" Salvar="Salvar" />
+                        break;
+                }
+            </fieldset>
+        </main>
+    </div>
+}
 
 @code {
-    private readonly string[] modulos = ["Cadastros", "Estoque", "Pedidos", "Financeiro"];
-    private string aba = "Cadastros", email = "", senha = "", mensagem = "";
+    private readonly string[] modulos = ["Visão geral", "Cadastros", "Estoque", "Pedidos", "Financeiro"];
+    private string aba = "Visão geral", email = "", senha = "", mensagem = "";
     private Painel? painel;
     private bool ocupado;
+
+    private bool erro;
+    private static string Numero(decimal valor) => valor.ToString("C", new System.Globalization.CultureInfo("pt-BR"));
+    private static string Icone(string modulo) => modulo switch
+    {
+        "Visão geral" => "grid", "Cadastros" => "users", "Estoque" => "box", "Pedidos" => "orders", _ => "wallet"
+    };
+    private static string Descricao(string modulo) => modulo switch
+    {
+        "Cadastros" => "Organize clientes, vendedores e roteiros de visita.",
+        "Estoque" => "Acompanhe o catálogo, os lotes e as datas de validade.",
+        "Pedidos" => "Revise pedidos, confirme o corte e organize a expedição.",
+        "Financeiro" => "Gerencie condições de pagamento e contas a receber.",
+        _ => "Acompanhe a operação comercial da distribuidora."
+    };
 
     private Task Entrar() => Executar(async () =>
     {
@@ -85,13 +146,15 @@
         if (ocupado) return;
         ocupado = true;
         mensagem = "";
+        erro = false;
         try { await acao(); }
         catch (HttpRequestException ex)
         {
             if (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized) Sair();
+            erro = true;
             mensagem = ex.Message;
         }
-        catch (Exception ex) { mensagem = ex.Message; }
+        catch (Exception ex) { erro = true; mensagem = ex.Message; }
         finally { ocupado = false; }
     }
 }
