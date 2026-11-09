@@ -2,6 +2,11 @@
 
 Projeto acadêmico individual para uma distribuidora de produtos de panificação. A equipe registra pedidos no navegador, mesmo sem conexão depois da primeira carga, e acompanha o fechamento, o estoque, a expedição e o contas a receber pelo painel.
 
+## Documentação da entrega
+
+- [Especificação do sistema](docs/ESPECIFICACAO.md)
+- [Roteiro de demonstração e critérios de aceite](docs/DEMONSTRACAO.md)
+
 ## Executar no Windows
 
 Instale o SDK .NET 10 e, na pasta do projeto, rode no PowerShell:
