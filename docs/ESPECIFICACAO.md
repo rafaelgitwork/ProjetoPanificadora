@@ -1,68 +1,35 @@
 # Especificação da Panificadora do Rafael
 
-## Objetivo
+## Objetivo e componentes
 
-A distribuidora vende insumos de panificação para empresas. O vendedor consulta sua carteira e registra pedidos em campo. A distribuidora reúne esses pedidos, decide o que pode atender e controla estoque, faturamento, expedição e contas a receber. Os produtos incluem fermentos, farinhas, misturas para bolos e salgados e margarina em baldes de 20 L.
-
-## Componentes e tecnologias
-
-| Componente | Responsabilidade | Tecnologia |
-|---|---|---|
-| Aplicativo do vendedor | Carregar dados de trabalho, consultar o roteiro, cadastrar clientes e registrar pedidos offline. | Interface web responsiva em HTML, CSS e JavaScript. Service worker para a interface offline. Armazenamento local para catálogo e fila. |
-| Site da distribuidora | Manter cadastros, organizar carteiras, revisar pedidos, confirmar vendas e acompanhar estoque e recebimentos. | Interface web servida pela aplicação ASP.NET Core. |
-| API | Autenticar operações, sincronizar dados, validar estoque e processar vendas e recebimentos. | ASP.NET Core no .NET 10, HTTP e JSON. |
-| Dados centrais | Registrar cadastros e transações. | A versão atual usa um arquivo JSON local, com escrita serializada para uma instância do servidor. |
-
-O aplicativo e o painel compartilham a mesma aplicação web na versão atual. A possibilidade de entregar uma interface web como aplicativo do vendedor depende do critério de avaliação da disciplina.
+A distribuidora vende fermentos, farinhas, misturas para bolos e salgados e margarina em baldes de 20 L a outras empresas. A solução usa três aplicações separadas. O aplicativo nativo é feito em .NET MAUI e usa SQLite para trabalhar offline. O site administrativo usa Blazor Interactive Server. A API ASP.NET Core concentra as regras e grava os dados em MySQL com EF Core. Os clientes consomem contratos HTTP/JSON e não se conectam ao MySQL.
 
 ## Cadastros e permissões
 
-- **Estado e cidade.** Um estado tem sigla e nome. Cada cidade pertence a um estado e pode integrar um território comercial.
-- **Vendedor e carteira.** Um vendedor possui identificação, contato e status ativo ou inativo. A gestão atribui territórios e clientes ao vendedor, impedindo carteiras ativas conflitantes.
-- **Cliente.** O cadastro contém razão social, documento, endereço, cidade, e-mail, telefone e status. O vendedor pode cadastrar um cliente novo em campo. A sincronização deve cadastrar o cliente antes de enviar pedidos que dependem dele.
-- **Roteiro.** A gestão define o dia, o trecho ou as cidades e os clientes na ordem de visita. A sequência aceita valores espaçados, como 10, 20 e 30, de modo que seja possível inserir uma visita na posição 15.
-- **Produto e grupo.** Cada produto pertence a um grupo, possui preço, status e requisitos de conservação. O lote registra validade e quantidade. Produtos novos e promocionais recebem destaques visuais distintos.
-- **Condição e forma de pagamento.** A condição define os prazos, percentuais e encargos. A forma define o meio de pagamento de cada parcela, como Pix ou boleto.
+- Estados e cidades identificam as localidades. Um território é um trecho identificado dentro de uma cidade e possui um vendedor responsável.
+- Vendedor, cliente e produto possuem status ativo ou inativo. Vendedores têm credenciais individuais. A API confere o status do vendedor mesmo quando seu token ainda está válido.
+- Cada cliente pertence a um território e tem identificação fiscal, e-mail, telefone e endereço. A gestão monta o roteiro com dia da semana e sequência inteira. É possível inserir a posição 15 entre 10 e 20.
+- Produtos têm grupo, unidade de venda, preço, conservação, validade mínima e lançamento. O catálogo destaca novidade e promoção vigente. A quantidade física fica na gestão.
+- A gestão cadastra formas de pagamento, como Pix ou boleto, e condições, que definem percentuais, prazos e taxas.
 
-A API deve restringir o vendedor à própria carteira e manter o saldo exato de estoque acessível à gestão. A versão atual usa duas chaves compartilhadas, uma para gestão e outra para vendas.
+## Operação do vendedor
 
-## Fluxo do vendedor
+O vendedor baixa preços, carteira e roteiro. Pode abrir a ficha pelo roteiro do dia ou pela lista de clientes, consultar a última compra por produto e ver principal em aberto e vencido. Clientes e pedidos novos podem ser cadastrados offline e aguardam na fila SQLite da conta. O envio confirma o cadastro antes do pedido vinculado e usa identificadores estáveis para evitar duplicações.
 
-1. Carregar os clientes da carteira, o roteiro e a lista de preços antes de sair.
-2. Consultar o roteiro do dia. Na ficha de cada cliente, ver a última compra efetiva por produto, com data, quantidade e preço, e consultar o saldo em aberto e o saldo vencido.
-3. Registrar clientes e pedidos mesmo sem conexão. Os pedidos permanecem em fila local.
-4. Enviar a fila às 12h e às 19h, no horário de São Paulo, ou acionar o botão de envio. O vendedor deve ver o que foi confirmado e o que ainda aguarda nova tentativa. Cada registro local tem identificador único para reenvio seguro.
-5. Consultar apenas o catálogo comercial disponível à venda, com os destaques de novidades e promoções.
+O aplicativo aberto e conectado tenta transmitir nas janelas que começam às 12h e 19h em São Paulo. Cada janela dura 15 minutos e permite novas tentativas quando há falha. O botão manual continua disponível. Ao salvar um pedido, ele entra na fila. Registros recusados continuam na fila com o motivo. Se o preço do catálogo mudou, o vendedor pode atualizar os dados e revisar o pedido retido.
 
-A rotina de envio no navegador precisa definir o comportamento quando a aplicação estiver fechada ou o aparelho estiver sem rede no horário programado.
+## Operação da distribuidora
 
-## Fluxo da distribuidora
+A gestão consulta os pedidos dos vendedores e informa o que pode liberar em cada item. A API verifica o limite solicitado, valida o saldo elegível e reserva primeiro os lotes de vencimento mais próximo. A confirmação é transacional. Uma liberação maior que o saldo é recusada sem gravação parcial.
 
-1. Reunir os pedidos de todos os vendedores e exibir os itens e as quantidades solicitadas.
-2. O responsável informa as quantidades liberadas por item. A interface pode exibir histórico de pagamento para apoiar a decisão.
-3. Na confirmação, a API verifica se cada quantidade liberada cabe no pedido e no saldo elegível. Reserva primeiro os lotes aptos de vencimento mais próximo e impede estoque negativo.
-4. Gerar a venda e seus itens pelas quantidades liberadas, preservando as quantidades originalmente pedidas. O cliente paga somente o valor atendido.
-5. Registrar o faturamento e o vínculo com a nota fiscal. Confirmar a saída física no momento da expedição. A exigência de emissão integrada de NF-e precisa ser confirmada com o professor.
+O sistema conserva as quantidades solicitada e liberada. Somente a quantidade liberada integra os itens e o valor da venda. A gestão registra a nota emitida, confirma a saída e a venda passa a Em rota. O sistema registra o número da nota emitida externamente. A emissão de NF-e depende de uma integração fiscal fora desta versão.
 
 ## Contas a receber
 
-A condição pode prever pagamento à vista ou parcelas com prazos como 7, 14 e 21 dias. A soma dos percentuais deve ser 100%. A geração em centavos deve preservar o total da venda. Cada parcela registra número, venda ou nota, valor, data de vencimento e forma de pagamento.
+Cada condição define dias e percentual para cada parcela, além de multa, juros diários e desconto diário por antecipação. A soma dos percentuais deve ser 100%. Uma condição à vista usa prazo zero. Cada parcela tem sua própria forma de pagamento e fica vinculada à venda, com número, valor e vencimento. Quando a nota é registrada, o painel mostra a identificação no formato número da nota/parcela.
 
-Multa, juros de atraso e desconto por antecipação seguem a condição configurada. Os valores mencionados no enunciado são exemplos de configuração. A gestão registra pagamentos parciais ou integrais. A dívida é exibida ao vendedor e não bloqueia o pedido por limite de crédito.
+Ao registrar uma baixa, o sistema considera multa e juros de atraso sobre o saldo e permite desconto na quitação antecipada. Pagamentos parciais reduzem o principal após a apropriação dos encargos. Os valores são registrados em centavos e os títulos somam o total vendido. A dívida do cliente é informativa e não bloqueia pedidos por limite de crédito.
 
-## Estado da implementação
+## IA e configurações
 
-| Área | Implementado | Pendente |
-|---|---|---|
-| Vendas em campo | Catálogo local, pedido offline no navegador, transmissão manual e reenvio idempotente. | Vendedores individuais, carteiras, roteiros, cadastro em campo, última compra, dívida por cliente e envio às 12h e 19h. |
-| Cadastros | Clientes, produtos, lotes e validade. | Estados, cidades, grupos, status, promoções e destaques de novidades. |
-| Estoque e vendas | Fechamento automático às 22h, rateio por peso, reserva por validade, venda sobre o atendido e baixa idempotente. | Revisão e corte por item pela gestão, faturamento e vínculo com nota. |
-| Financeiro | Parcelas em intervalos de 30 dias e pagamentos parciais ou totais. | Condições e formas configuráveis, prazos de 7 e 14 dias, identificação dos títulos e encargos. |
-
-## IA, configurações e padrões
-
-A ferramenta de IA usada no desenvolvimento e na documentação foi o **OpenAI Codex**, no aplicativo desktop. O projeto foi compilado com .NET SDK 10.0.403. As configurações de execução incluem chaves distintas de gestão e vendas, fuso America/Sao_Paulo e um modo de demonstração disponível em desenvolvimento. As chaves são fornecidas por variáveis de ambiente.
-
-Os padrões específicos ensinados pelo professor Luciano não constam no enunciado recebido. A validação desses padrões com o material da disciplina permanece pendente.
-
-Consulte o [roteiro de demonstração e critérios de aceite](DEMONSTRACAO.md).
+O desenvolvimento usou OpenAI Codex no aplicativo desktop e SDK .NET 10. Os parâmetros de execução, incluindo conexão MySQL e credenciais de gestão, estão descritos no [README](../README.md). A solução adota separação entre aplicativo, site e API, contratos HTTP/JSON, autenticação com JWT, migrações versionadas e testes unitários e de integração. Os demais padrões ensinados pelo professor Luciano dependem do material da disciplina.

@@ -1,0 +1,66 @@
+<section>
+    <h2>Produtos e lotes</h2>
+    <div class="grade">
+        <form @onsubmit="GravarProduto" @onsubmit:preventDefault>
+            <h3>Produto</h3>
+            <label>Nome <input required @bind="nome" /></label>
+            <label>Grupo <select @bind="grupo"><option value="@Guid.Empty">Selecione</option>
+                @foreach (var g in Dados.Grupos) { <option value="@g.Id">@g.Nome</option> }
+            </select></label>
+            <label>Unidade de venda <input required @bind="unidade" placeholder="Balde de 20 L" /></label>
+            <label>Conservação <input required @bind="conservacao" /></label>
+            <label>Preço <input required type="number" step="0.01" min="0.01" @bind="preco" /></label>
+            <label>Validade mínima para entrega, em dias <input required type="number" min="0" @bind="minimo" /></label>
+            <label>Lançamento <input type="date" @bind="lancamento" /></label>
+            <label>Preço promocional <input type="number" step="0.01" min="0.01" @bind="promocao" /></label>
+            <label>Promoção até <input type="date" @bind="promocaoAte" /></label>
+            <label class="check"><input type="checkbox" @bind="ativo" /> Ativo</label>
+            <button>Salvar produto</button>
+            <button type="button" @onclick="Novo">Novo</button>
+        </form>
+        <form @onsubmit="GravarLote" @onsubmit:preventDefault>
+            <h3>Entrada de lote</h3>
+            <label>Produto <select @bind="produtoLote"><option value="@Guid.Empty">Selecione</option>
+                @foreach (var p in Dados.Produtos.Where(p => p.Ativo)) { <option value="@p.Id">@p.Nome</option> }
+            </select></label>
+            <label>Quantidade <input required type="number" min="1" @bind="quantidade" /></label>
+            <label>Vencimento <input required type="date" @bind="validade" /></label>
+            <button>Registrar entrada</button>
+        </form>
+    </div>
+    <h3>Catálogo</h3>
+    <ul>@foreach (var p in Dados.Produtos)
+        { <li>@p.Nome · @p.Preco.ToString("C", Brasil) · @(p.Ativo ? "Ativo" : "Inativo")
+            @if (p.PrecoPromocional is decimal valor) { <strong class="promo">Promoção @valor.ToString("C", Brasil) até @p.PromocaoAte</strong> }
+            <button @onclick="() => Editar(p)">Editar</button></li> }
+    </ul>
+    <h3>Lotes por validade</h3>
+    <table><thead><tr><th>Produto</th><th>Validade</th><th>Físico</th><th>Reservado</th><th>Disponível no lote</th></tr></thead>
+    <tbody>@foreach (var l in Dados.Lotes.OrderBy(l => l.Validade))
+        { <tr><td>@Dados.Produtos.FirstOrDefault(p => p.Id == l.ProdutoId)?.Nome</td><td>@l.Validade</td>
+            <td>@l.Fisico</td><td>@l.Reservado</td><td>@(l.Fisico - l.Reservado)</td></tr> }</tbody></table>
+</section>
+@code {
+    [Parameter, EditorRequired] public Painel Dados { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<string, object, Task> Salvar { get; set; } = null!;
+    private static readonly System.Globalization.CultureInfo Brasil = new("pt-BR");
+    private Guid id, grupo, produtoLote;
+    private string nome = "", unidade = "", conservacao = "";
+    private decimal preco;
+    private decimal? promocao;
+    private DateOnly lancamento = DateOnly.FromDateTime(DateTime.Today), validade = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly? promocaoAte;
+    private int minimo, quantidade = 1;
+    private bool ativo = true;
+
+    private Task GravarProduto()
+    {
+        if (id == Guid.Empty) id = Guid.NewGuid();
+        return Salvar("produtos", new Produto(id, grupo, nome, unidade, conservacao, preco, minimo, lancamento, ativo, promocao, promocaoAte));
+    }
+    private Task GravarLote() => Salvar("lotes", new Lote(Guid.NewGuid(), produtoLote, validade, quantidade));
+    private void Editar(Produto p) => (id, grupo, nome, unidade, conservacao, preco, minimo, lancamento, ativo, promocao, promocaoAte)
+        = (p.Id, p.GrupoId, p.Nome, p.Unidade, p.Conservacao, p.Preco, p.ValidadeMinima, p.Lancamento, p.Ativo, p.PrecoPromocional, p.PromocaoAte);
+    private void Novo() => (id, grupo, nome, unidade, conservacao, preco, minimo, lancamento, ativo, promocao, promocaoAte)
+        = (Guid.Empty, Guid.Empty, "", "", "", 0, 0, DateOnly.FromDateTime(DateTime.Today), true, null, null);
+}

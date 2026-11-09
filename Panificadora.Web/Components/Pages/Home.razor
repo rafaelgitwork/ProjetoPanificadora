@@ -1,0 +1,97 @@
+@page "/"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@inject ClienteApi Api
+
+<PageTitle>Panificadora do Rafael | Distribuidora</PageTitle>
+<header><small>PAINEL DA DISTRIBUIDORA</small><h1>Panificadora do Rafael</h1></header>
+<main>
+    @if (painel is null)
+    {
+        <section>
+            <h2>Acesso da gestão</h2>
+            <form @onsubmit="Entrar" @onsubmit:preventDefault>
+                <label>E-mail <input type="email" required @bind="email" /></label>
+                <label>Senha <input type="password" required @bind="senha" /></label>
+                <button disabled="@ocupado">Entrar</button>
+            </form>
+        </section>
+    }
+    else
+    {
+        <nav aria-label="Módulos">
+            @foreach (var modulo in modulos)
+            {
+                <button class="@(aba == modulo ? "selecionado" : "")" @onclick="() => aba = modulo">@modulo</button>
+            }
+            <button @onclick="() => Executar(Atualizar)" disabled="@ocupado">Atualizar</button>
+            <button @onclick="Sair">Sair</button>
+        </nav>
+    }
+    <p role="status">@mensagem</p>
+    @if (painel is not null)
+    {
+        <fieldset disabled="@ocupado">
+            @switch (aba)
+            {
+                case "Cadastros":
+                    <Cadastros Dados="painel" Salvar="Salvar" />
+                    break;
+                case "Estoque":
+                    <Estoque Dados="painel" Salvar="Salvar" />
+                    break;
+                case "Pedidos":
+                    <Pedidos Dados="painel" Salvar="Salvar" />
+                    break;
+                case "Financeiro":
+                    <Financeiro Dados="painel" Salvar="Salvar" />
+                    break;
+            }
+        </fieldset>
+    }
+</main>
+
+@code {
+    private readonly string[] modulos = ["Cadastros", "Estoque", "Pedidos", "Financeiro"];
+    private string aba = "Cadastros", email = "", senha = "", mensagem = "";
+    private Painel? painel;
+    private bool ocupado;
+
+    private Task Entrar() => Executar(async () =>
+    {
+        var sessao = await Api.Postar<Sessao>("sessao", new Acesso(email, senha));
+        senha = "";
+        if (sessao.Perfil != "Gestao") throw new InvalidOperationException("Use a conta de gestão.");
+        Api.Token = sessao.Token;
+        await Atualizar();
+    });
+
+    private async Task Atualizar() => painel = await Api.Obter<Painel>("gestao");
+    private void Sair()
+    {
+        Api.Token = null;
+        painel = null;
+        mensagem = "";
+    }
+
+    private Task Salvar(string rota, object entrada) => Executar(async () =>
+    {
+        await Api.Postar<System.Text.Json.JsonElement>("gestao/" + rota, entrada);
+        await Atualizar();
+        mensagem = "Operação registrada.";
+    });
+
+    private async Task Executar(Func<Task> acao)
+    {
+        if (ocupado) return;
+        ocupado = true;
+        mensagem = "";
+        try { await acao(); }
+        catch (HttpRequestException ex)
+        {
+            if (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized) Sair();
+            mensagem = ex.Message;
+        }
+        catch (Exception ex) { mensagem = ex.Message; }
+        finally { ocupado = false; }
+    }
+}

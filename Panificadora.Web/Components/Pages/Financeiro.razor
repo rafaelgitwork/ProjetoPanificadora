@@ -1,0 +1,90 @@
+<section>
+    <h2>Formas e condições de pagamento</h2>
+    <div class="grade">
+        <form @onsubmit="GravarForma" @onsubmit:preventDefault>
+            <label>Forma de pagamento <input required @bind="forma" placeholder="Pix ou boleto" /></label>
+            <button>Cadastrar forma</button>
+            <small>@string.Join(" · ", Dados.Formas.Select(f => f.Nome))</small>
+        </form>
+        <form @onsubmit="GravarCondicao" @onsubmit:preventDefault>
+            <label>Nome da condição <input required @bind="condicao" /></label>
+            <label>Multa (%) <input type="number" min="0" max="100" step="0.01" @bind="multa" /></label>
+            <label>Juros ao dia (%) <input type="number" min="0" max="100" step="0.01" @bind="juros" /></label>
+            <label>Desconto antecipado ao dia (%) <input type="number" min="0" max="100" step="0.01" @bind="desconto" /></label>
+            @foreach (var prazo in prazos)
+            {
+                <div class="parcela" @key="prazo">
+                    <label>Dias <input required type="number" min="0" @bind="prazo.Dias" /></label>
+                    <label>Percentual <input required type="number" min="0.0001" max="100" step="0.0001" @bind="prazo.Percentual" /></label>
+                    <label>Forma <select @bind="prazo.FormaId"><option value="@Guid.Empty">Selecione</option>
+                        @foreach (var f in Dados.Formas) { <option value="@f.Id">@f.Nome</option> }
+                    </select></label>
+                    <button type="button" disabled="@(prazos.Count == 1)" @onclick="() => prazos.Remove(prazo)">Remover parcela</button>
+                </div>
+            }
+            <button type="button" disabled="@(prazos.Count >= 24)" @onclick="() => prazos.Add(new())">Adicionar parcela</button>
+            <button>Salvar condição</button>
+        </form>
+    </div>
+    <ul>@foreach (var c in Dados.Condicoes)
+        {
+            <li>@c.Nome · @string.Join(" | ", Dados.Prazos.Where(p => p.CondicaoId == c.Id).OrderBy(p => p.Numero)
+                .Select(p => $"{p.Dias} dias / {p.Percentual:G29}% / {Dados.Formas.FirstOrDefault(f => f.Id == p.FormaId)?.Nome}"))</li>
+        }
+    </ul>
+</section>
+<section>
+    <h2>Contas a receber</h2>
+    @foreach (var t in Dados.Titulos.OrderBy(t => t.Vencimento))
+    {
+        var v = Dados.Vendas.Single(v => v.Id == t.VendaId);
+        <article @key="t.Id">
+            <h3>@(v.Nota ?? v.Id.ToString()[..8])/@t.Numero · @t.Forma</h3>
+            <p>@Dados.Clientes.FirstOrDefault(c => c.Id == v.ClienteId)?.Nome · vence @t.Vencimento ·
+                original @t.Valor.ToString("C", Brasil) · principal em aberto @((t.Valor - t.PrincipalPago).ToString("C", Brasil))</p>
+            @if (t.PrincipalPago < t.Valor)
+            {
+                <form @onsubmit="() => Baixar(t)" @onsubmit:preventDefault>
+                    <label>Valor recebido <input required type="number" min="0.01" step="0.01"
+                        @bind:get="valores.GetValueOrDefault(t.Id)" @bind:set="x => valores[t.Id] = x" /></label>
+                    <button>Registrar pagamento</button>
+                </form>
+            }
+            <ul>@foreach (var baixa in Dados.Baixas.Where(b => b.TituloId == t.Id))
+                { <li>@baixa.Data · recebido @baixa.Valor.ToString("C", Brasil) · encargos @baixa.Encargos.ToString("C", Brasil) · desconto @baixa.Desconto.ToString("C", Brasil)</li> }
+            </ul>
+        </article>
+    }
+</section>
+@code {
+    [Parameter, EditorRequired] public Painel Dados { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<string, object, Task> Salvar { get; set; } = null!;
+    private static readonly System.Globalization.CultureInfo Brasil = new("pt-BR");
+    private string forma = "", condicao = "";
+    private decimal multa, juros, desconto;
+    private readonly List<ParcelaForm> prazos = [new() { Percentual = 100 }];
+    private readonly Dictionary<Guid, decimal> valores = [];
+    private readonly Dictionary<Guid, Pagamento> tentativas = [];
+    private Task GravarForma() => Salvar("formas", new Forma(Guid.NewGuid(), forma));
+    private Task GravarCondicao()
+    {
+        var id = Guid.NewGuid();
+        return Salvar("condicoes", new CadastroCondicao(new Condicao(id, condicao, multa, juros, desconto),
+            prazos.Select((p, i) => new Prazo(Guid.NewGuid(), id, i + 1, p.Dias, p.Percentual, p.FormaId)).ToArray()));
+    }
+    private Task Baixar(Titulo t)
+    {
+        var valor = valores.GetValueOrDefault(t.Id);
+        if (!tentativas.TryGetValue(t.Id, out var tentativa) || tentativa.Valor != valor ||
+            Dados.Baixas.Any(b => b.Id == tentativa.Id))
+            tentativas[t.Id] = tentativa = new Pagamento(Guid.NewGuid(), valor);
+        return Salvar($"titulos/{t.Id}/baixas", tentativa);
+    }
+
+    private sealed class ParcelaForm
+    {
+        public int Dias { get; set; }
+        public decimal Percentual { get; set; }
+        public Guid FormaId { get; set; }
+    }
+}

@@ -1,5 +1,7 @@
 bin/
 obj/
-dados/
+.vs/
+/dados/
+*.user
 *.tmp
 .env

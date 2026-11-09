@@ -1,33 +1,18 @@
-# Demonstração e critérios de aceite
+# Roteiro de demonstração
 
-## Demonstrar a versão atual
+## Cadastros e operação em campo
 
-Siga a configuração no [README](../README.md). Para a demonstração, habilite o modo de desenvolvimento e o botão de fechamento.
+1. Inicie API, site e app conforme o [README](../README.md).
+2. No site, cadastre estado PR, cidade Foz do Iguaçu, um vendedor e um território. Cadastre três clientes e programe as posições 10, 20 e 15 para o dia da demonstração.
+3. Cadastre um grupo e um produto de R$ 117,50 com lote de 15 unidades elegíveis. Para ver os destaques no catálogo, inclua também um produto recém-lançado e outro com promoção vigente.
+4. Cadastre Pix e boleto e uma condição de duas parcelas de 50%, com Pix em 7 dias e boleto em 14 dias.
+5. Entre no app com o vendedor e baixe preços, carteira e roteiro. Confira a ordem 10, 15 e 20. Desconecte o aparelho, registre um cliente e um pedido, feche e abra o app e confira se os registros permaneceram na fila. Reconecte e use o botão manual. O cadastro precisa chegar antes do pedido que depende dele.
 
-1. Com a chave de gestão, cadastre dois clientes, um produto e dois lotes do mesmo produto, com validades diferentes.
-2. Com a chave de vendas, carregue o catálogo. Aguarde o registro do service worker, desconecte o navegador e salve um pedido para cada cliente. Recarregue a página offline e confira se a fila permanece. Reconecte e verifique o envio. Este é um teste manual do navegador.
-3. Solicite mais unidades do que o estoque comporta. Na gestão, feche o lote em modo de demonstração. Confira o que cada cliente solicitou e recebeu, o total da venda e a reserva por validade.
-4. Confirme a saída. Confira que o saldo físico diminuiu e que a venda passou para Em rota.
-5. Registre um pagamento parcial e depois quite o saldo. Confira os valores por parcela.
+## Corte, expedição e financeiro
 
-## Verificação automatizada da API
+1. Envie pedidos de 5, 8 e 9 unidades para três clientes. No painel, libere 2 e 6 unidades nos dois primeiros. Tente liberar 8 no terceiro. A API deve recusar. Libere 7 e confira o total de 15 unidades reservadas.
+2. Abra a venda de 2 unidades. O total deve ser R$ 235,00. Registre a nota 123 e confirme a saída. Verifique o estoque físico e o status Em rota.
+3. Confira os títulos 123/1 e 123/2 de R$ 117,50, um em Pix e outro em boleto. Para a venda de 19/10/2026 usada no teste, as datas esperadas são 26/10/2026 e 02/11/2026.
+4. Registre um pagamento parcial e atualize a carteira do vendedor. Confira a dívida e a última compra, que deve mostrar as 2 unidades efetivamente vendidas.
 
-Execute no PowerShell 7, a partir da raiz:
-
-```powershell
-pwsh -File verificacao/fluxo.ps1
-```
-
-A verificação cobre acesso, reenvio, dia comercial no horário do teste, fechamento, rateio em escassez, reserva por validade, baixa idempotente e quitação. O fluxo automatizado usa dados temporários e não opera o navegador.
-
-## Cenários de aceite do enunciado
-
-| Cenário | Passos e resultado esperado | Estado |
-|---|---|---|
-| Inserção em roteiro | Cadastrar visitas 10, 20 e 30. Inserir a 15 e consultar o roteiro do dia. O app deve listar 10, 15, 20 e 30. | Pendente. |
-| Cadastro em campo | Sem conexão, cadastrar uma panificadora e criar um pedido para ela. Sincronizar e repetir o envio. Deve existir um único cliente e um único pedido. | Pendente. |
-| Histórico e dívida | Após uma semana sem compra, a ficha deve mostrar a última compra efetiva por produto, com quantidade e preço. Deve informar saldo em aberto e vencido. | Pendente. |
-| Envio por janela | Criar pedidos pela manhã e à tarde. A fila deve enviar às 12h e 19h quando possível, manter os itens que falharem e aceitar envio manual. | Envio manual disponível. Janelas pendentes. |
-| Corte de 15 unidades | Receber pedidos de 5, 8 e 9 unidades. A gestão libera 2, 6 e 7. A API confirma 15 unidades ao todo e recusa liberar uma 16ª. A venda cobra apenas as quantidades liberadas. | O estoque e o rateio atual têm verificação. O corte manual exato está pendente. |
-| Condição de R$ 235,00 | Configurar 50% em 7 dias por Pix e 50% em 14 dias por boleto. Para venda de 19/10/2026, gerar R$ 117,50 em 26/10/2026 e R$ 117,50 em 02/11/2026. Se vinculadas à nota 123, as parcelas devem aparecer como 123/1 e 123/2. | Pendente. A versão atual usa prazos fixos de 30 dias. |
-| Vencimentos com percentuais distintos | Configurar 33,33%, 33,33% e 33,34% para 7, 14 e 21 dias. Verificar que a soma dos títulos em centavos equivale ao total da venda. | Pendente. |
+O teste automatizado verifica o cenário de corte e o parcelamento contra MySQL. O roteiro também inclui a verificação manual de SQLite, interface e janelas de envio no dispositivo.

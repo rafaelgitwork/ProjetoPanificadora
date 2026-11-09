@@ -1,0 +1,67 @@
+<section>
+    <h2>Pedidos recebidos e corte</h2>
+    @foreach (var pedido in Dados.Pedidos)
+    {
+        <article @key="pedido.Id">
+            <h3>@Cliente(pedido.ClienteId) · @pedido.Situacao</h3>
+            <p>Vendedor: @Dados.Vendedores.FirstOrDefault(v => v.Id == pedido.VendedorId)?.Nome</p>
+            <form @onsubmit="() => Cortar(pedido)" @onsubmit:preventDefault>
+                <table>
+                    <thead><tr><th>Produto</th><th>Pedido</th><th>Preço</th><th>Liberado</th></tr></thead>
+                    <tbody>@foreach (var i in Dados.Itens.Where(i => i.PedidoId == pedido.Id))
+                        {
+                            <tr>
+                                <td>@Produto(i.ProdutoId)</td><td>@i.Quantidade</td><td>@i.Preco.ToString("C", Brasil)</td>
+                                <td>@if (i.Liberado is int quantidade) { @quantidade }
+                                    else
+                                    {
+                                        <input aria-label="@("Quantidade liberada de " + Produto(i.ProdutoId))" type="number" required min="0"
+                                            max="@i.Quantidade" @bind:get="Quantidade(i)" @bind:set="v => liberadas[i.Id] = v" />
+                                    }
+                                </td>
+                            </tr>
+                        }</tbody>
+                </table>
+                @if (pedido.Situacao == "Recebido") { <button>Confirmar corte e gerar venda</button> }
+            </form>
+        </article>
+    }
+</section>
+<section>
+    <h2>Vendas e expedição</h2>
+    @foreach (var v in Dados.Vendas)
+    {
+        <article @key="v.Id">
+            <h3>@Cliente(v.ClienteId) · @v.Total.ToString("C", Brasil) · @v.Situacao</h3>
+            <ul>@foreach (var i in Dados.ItensVenda.Where(i => i.VendaId == v.Id))
+                { <li>@Produto(i.ProdutoId) · @i.Quantidade × @i.Preco.ToString("C", Brasil)</li> }
+            </ul>
+            @if (v.Nota is null)
+            {
+                <form @onsubmit="() => Faturar(v)" @onsubmit:preventDefault>
+                    <label>Número da nota emitida <input required @bind:get="notas.GetValueOrDefault(v.Id)" @bind:set="n => notas[v.Id] = n ?? string.Empty" /></label>
+                    <button>Registrar faturamento</button>
+                </form>
+            }
+            else
+            {
+                <p>Nota @v.Nota</p>
+                @if (v.Situacao != "Em rota") { <button @onclick="() => Expedir(v)">Confirmar saída</button> }
+            }
+        </article>
+    }
+</section>
+@code {
+    [Parameter, EditorRequired] public Painel Dados { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<string, object, Task> Salvar { get; set; } = null!;
+    private static readonly System.Globalization.CultureInfo Brasil = new("pt-BR");
+    private readonly Dictionary<Guid, int> liberadas = [];
+    private readonly Dictionary<Guid, string> notas = [];
+    private string Cliente(Guid id) => Dados.Clientes.FirstOrDefault(c => c.Id == id)?.Nome ?? "Cliente";
+    private string Produto(Guid id) => Dados.Produtos.FirstOrDefault(p => p.Id == id)?.Nome ?? "Produto";
+    private int Quantidade(LinhaPedido linha) => liberadas.GetValueOrDefault(linha.Id, linha.Quantidade);
+    private Task Cortar(Pedido p) => Salvar($"pedidos/{p.Id}/corte",
+        new Corte(Dados.Itens.Where(i => i.PedidoId == p.Id).Select(i => new Liberacao(i.Id, Quantidade(i))).ToArray()));
+    private Task Faturar(Venda v) => Salvar($"vendas/{v.Id}/nota", new Faturamento(notas.GetValueOrDefault(v.Id) ?? ""));
+    private Task Expedir(Venda v) => Salvar($"vendas/{v.Id}/expedicao", new { });
+}

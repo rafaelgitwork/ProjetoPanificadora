@@ -1,52 +1,58 @@
 # Panificadora do Rafael
 
-Projeto acadêmico individual para uma distribuidora de produtos de panificação. A equipe registra pedidos no navegador, mesmo sem conexão depois da primeira carga, e acompanha o fechamento, o estoque, a expedição e o contas a receber pelo painel.
+Sistema B2B para uma distribuidora de insumos de panificação. O vendedor consulta a carteira, segue o roteiro e registra clientes e pedidos em campo. A distribuidora decide as quantidades a liberar, controla lotes, registra o faturamento e acompanha os recebimentos.
 
-## Documentação da entrega
+## Estrutura
 
-- [Especificação do sistema](docs/ESPECIFICACAO.md)
-- [Roteiro de demonstração e critérios de aceite](docs/DEMONSTRACAO.md)
+| Projeto | Tecnologia | Responsabilidade |
+|---|---|---|
+| Panificadora.App | .NET MAUI 10 e SQLite | Carteira, roteiro, histórico, catálogo e fila de clientes e pedidos offline. |
+| Panificadora.Web | Blazor 10, Interactive Server | Cadastros, estoque, revisão de pedidos, corte, faturamento, expedição e financeiro. |
+| Panificadora.Api | ASP.NET Core 10, EF Core 10 e MySQL | Autenticação, regras de negócio, migrações e persistência central. |
+| Panificadora.Contratos | .NET 10 | Contratos JSON e cliente HTTP compartilhados. |
+| tests | xUnit | Cálculos financeiros e integração HTTP com MySQL. |
+
+A solução `PanificadoraDoRafael.slnx` reúne os projetos. O app e o site acessam os dados centrais pela API.
 
 ## Executar no Windows
 
-Instale o SDK .NET 10 e, na pasta do projeto, rode no PowerShell:
+Use o SDK .NET 10, a carga de trabalho MAUI e uma instância MySQL. Crie o banco `panificadora` e um usuário com permissões de leitura, escrita e migração nesse banco.
+
+1. **API.** Configure as variáveis abaixo em um terminal PowerShell e inicie o servidor. Os valores de e-mail e senha são usados no primeiro acesso à gestão. A senha precisa ter pelo menos 12 caracteres. Gere uma nova chave e mantenha as credenciais fora do repositório.
+
+   ```powershell
+   $env:ConnectionStrings__Distribuidora = 'Server=localhost;Port=3306;Database=panificadora;User ID=panificadora;Password=SUA_SENHA_MYSQL'
+   $env:Autenticacao__Chave = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+   $env:Gestao__Email = 'gestao@panificadora.local'
+   $env:Gestao__Senha = 'TROQUE_POR_UMA_SENHA_FORTE'
+   $env:Banco__Migrar = 'true'
+   dotnet run --project Panificadora.Api --no-launch-profile --urls http://localhost:5100
+   ```
+
+2. **Site Blazor.** Em outro terminal, inicie o site e abra http://localhost:5200. Entre com a conta de gestão e cadastre um vendedor ativo. O site usa a API local por padrão. A variável `Api__Url` permite definir outro endereço.
+
+   ```powershell
+   $env:ASPNETCORE_ENVIRONMENT = 'Development'
+   dotnet run --project Panificadora.Web --no-launch-profile --urls http://localhost:5200
+   ```
+
+3. **Aplicativo MAUI.** Execute pelo Visual Studio com o destino Windows Machine ou use o comando abaixo. Entre com o vendedor criado pelo site e use a URL local padrão. Para um aparelho Android ou outro cliente fora do computador da API, informe uma URL HTTPS acessível ao aparelho.
+
+   ```powershell
+   dotnet build Panificadora.App -t:Run -f net10.0-windows10.0.19041.0
+   ```
+
+## Testes
 
 ```powershell
-$env:PANIFICADORA_ADMIN = [guid]::NewGuid().ToString('N')
-$env:PANIFICADORA_VENDAS = [guid]::NewGuid().ToString('N')
-Write-Host "Gestão: $env:PANIFICADORA_ADMIN"
-Write-Host "Vendas: $env:PANIFICADORA_VENDAS"
-dotnet run --no-launch-profile --urls http://localhost:5167
+dotnet test tests/Panificadora.UnitTests
+$env:PANIFICADORA_TEST_MYSQL = 'Server=localhost;Port=3306;User ID=USUARIO_DE_TESTE;Password=SENHA_DE_TESTE'
+dotnet test tests/Panificadora.IntegrationTests
 ```
 
-Abra http://localhost:5167. A chave de gestão libera cadastros e operações administrativas. A chave de vendas libera o catálogo e o envio de pedidos. O arquivo local de dados é criado em `dados/operacao.json`. Use uma única instância do servidor para cada arquivo.
+Use uma instância de testes. O teste de integração cria um banco temporário com nome aleatório, aplica as migrações e remove esse banco ao terminar. A conta de teste precisa de permissão para essas operações.
 
-Para habilitar o fechamento manual de demonstração, defina `ASPNETCORE_ENVIRONMENT=Development` e `PANIFICADORA_DEMO=1` antes de iniciar o servidor e abra http://localhost:5167/?demo. Use dados de teste nesse modo, pois o botão antecipa o fechamento.
+## Entrega
 
-## Demonstrar o fluxo
-
-1. Entre com a chave de gestão. Cadastre dois clientes, um produto e dois lotes do mesmo produto com validades diferentes.
-2. Em outra janela, entre com a chave de vendas e aguarde o carregamento do catálogo. Em localhost ou HTTPS, o navegador pode manter a interface disponível offline após a primeira visita.
-3. Desative a conexão pelo painel de rede do navegador. Selecione um cliente, adicione itens e salve o pedido. Repita para o segundo cliente com demanda total acima do estoque.
-4. Restabeleça a conexão e transmita a fila. No painel de gestão, atualize os dados e aguarde o corte ou use o botão de demonstração.
-5. Confira os itens atendidos, os pesos do rateio e a reserva dos lotes. Confirme a saída física e registre um pagamento parcial, seguido da quitação.
-
-## Regras implementadas
-
-- O servidor atribui a data comercial no recebimento. A partir das 22h de São Paulo, o pedido entra no próximo dia. O serviço também busca dias anteriores ainda pendentes quando volta a rodar.
-- Cada pedido tem um identificador gerado no navegador. O mesmo pedido pode ser reenviado sem duplicação. O preço informado precisa bater com o catálogo, e a API rejeita a data de catálogo quando tem mais de 48 horas.
-- O fechamento limita o atendimento ao estoque elegível. Se houver escassez, distribui as unidades em proporção à demanda e ao peso do cliente, considerando tempo de relacionamento e saldo vencido. Em empates usa o identificador do pedido como critério estável.
-- A reserva consome primeiro o lote elegível com vencimento mais próximo. A baixa física ocorre na expedição, que pode ser chamada novamente sem duplicar a movimentação.
-- A venda gera até três parcelas em intervalos de 30 dias. Vencimentos em fim de semana passam para segunda-feira. Pagamentos são aplicados às parcelas abertas mais antigas e os lançamentos ficam registrados.
-
-## Verificação
-
-```powershell
-pwsh -File verificacao/fluxo.ps1
-```
-
-O roteiro inicia um servidor local com arquivo temporário e verifica permissões, reenvio, dia comercial, fechamento, rateio, reserva FEFO, saída física e quitação. Use `-Porta` se a porta 5167 já estiver em uso.
-
-## Escopo desta versão
-
-A aplicação usa ASP.NET Core, uma interface web responsiva, armazenamento local no navegador e um arquivo JSON central. O modo offline é para pedidos e catálogo. Esta versão ainda não inclui contas individuais e aprovação de vendedores, carteiras e roteiros, promoções, juros e descontos, realocação automática de lotes ou banco relacional. O roteiro automatizado testa a API. O uso offline no navegador tem um roteiro manual acima.
+- [Especificação do sistema](docs/ESPECIFICACAO.md)
+- [Roteiro de demonstração e critérios de aceite](docs/DEMONSTRACAO.md)

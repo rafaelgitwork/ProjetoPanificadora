@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/Panificadora.IntegrationTests/Panificadora.IntegrationTests.csproj" />
+    <Project Path="tests/Panificadora.UnitTests/Panificadora.UnitTests.csproj" />
+  </Folder>
+  <Project Path="Panificadora.Api/Panificadora.Api.csproj" />
+  <Project Path="Panificadora.App/Panificadora.App.csproj" />
+  <Project Path="Panificadora.Contratos/Panificadora.Contratos.csproj" />
+  <Project Path="Panificadora.Web/Panificadora.Web.csproj" />
+</Solution>

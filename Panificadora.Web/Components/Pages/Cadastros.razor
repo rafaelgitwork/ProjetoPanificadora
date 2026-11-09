@@ -1,0 +1,152 @@
+<section>
+    <h2>Localidades e grupos</h2>
+    <div class="grade">
+        <form @onsubmit='() => Salvar("estados", new Estado(Guid.NewGuid(), uf, estado))' @onsubmit:preventDefault>
+            <h3>Estado</h3>
+            <label>UF <input required maxlength="2" @bind="uf" /></label>
+            <label>Nome <input required @bind="estado" /></label>
+            <button>Cadastrar estado</button>
+            <small>@string.Join(" · ", Dados.Estados.Select(e => e.Uf))</small>
+        </form>
+        <form @onsubmit='() => Salvar("cidades", new Cidade(Guid.NewGuid(), estadoId, cidade))' @onsubmit:preventDefault>
+            <h3>Cidade</h3>
+            <label>Estado <select @bind="estadoId"><option value="@Guid.Empty">Selecione</option>
+                @foreach (var e in Dados.Estados) { <option value="@e.Id">@e.Uf</option> }
+            </select></label>
+            <label>Nome <input required @bind="cidade" /></label>
+            <button>Cadastrar cidade</button>
+            <small>@string.Join(" · ", Dados.Cidades.Select(c => c.Nome))</small>
+        </form>
+        <form @onsubmit='() => Salvar("grupos", new Grupo(Guid.NewGuid(), grupo))' @onsubmit:preventDefault>
+            <h3>Grupo de produtos</h3>
+            <label>Nome <input required @bind="grupo" /></label>
+            <button>Cadastrar grupo</button>
+            <small>@string.Join(" · ", Dados.Grupos.Select(g => g.Nome))</small>
+        </form>
+    </div>
+</section>
+<section>
+    <h2>Vendedores e territórios</h2>
+    <div class="grade">
+        <form @onsubmit="GravarVendedor" @onsubmit:preventDefault>
+            <h3>Vendedor</h3>
+            <label>Nome <input required @bind="vendedor" /></label>
+            <label>E-mail <input required type="email" @bind="email" /></label>
+            <label>Senha inicial ou nova <input type="password" minlength="12" @bind="senha" /></label>
+            <label class="check"><input type="checkbox" @bind="vendedorAtivo" /> Ativo</label>
+            <button>Salvar vendedor</button>
+            <button type="button" @onclick="NovoVendedor">Novo</button>
+        </form>
+        <form @onsubmit="GravarTerritorio" @onsubmit:preventDefault>
+            <h3>Território</h3>
+            <label>Cidade <select @bind="cidadeId"><option value="@Guid.Empty">Selecione</option>
+                @foreach (var c in Dados.Cidades) { <option value="@c.Id">@c.Nome</option> }
+            </select></label>
+            <label>Trecho ou região <input required @bind="trecho" /></label>
+            <label>Vendedor <select @bind="responsavelId"><option value="@Guid.Empty">Selecione</option>
+                @foreach (var v in Dados.Vendedores.Where(v => v.Ativo)) { <option value="@v.Id">@v.Nome</option> }
+            </select></label>
+            <button>Salvar território</button>
+            <button type="button" @onclick="NovoTerritorio">Novo</button>
+        </form>
+    </div>
+    <ul>@foreach (var v in Dados.Vendedores)
+        { <li>@v.Nome · @(v.Ativo ? "Ativo" : "Inativo") <button @onclick="() => EditarVendedor(v)">Editar</button></li> }
+    </ul>
+    <ul>@foreach (var t in Dados.Territorios)
+        { <li>@NomeTerritorio(t) <button @onclick="() => EditarTerritorio(t)">Editar</button></li> }
+    </ul>
+</section>
+<section>
+    <h2>Clientes e roteiro</h2>
+    <div class="grade">
+        <form @onsubmit="GravarCliente" @onsubmit:preventDefault>
+            <h3>Cliente</h3>
+            <label>Empresa <input required @bind="empresa" /></label>
+            <label>CPF ou CNPJ <input required @bind="documento" /></label>
+            <label>E-mail <input required type="email" @bind="emailCliente" /></label>
+            <label>Telefone <input required @bind="telefone" /></label>
+            <label>Endereço <input required @bind="endereco" /></label>
+            <label>Território <select @bind="territorioCliente"><option value="@Guid.Empty">Selecione</option>
+                @foreach (var t in Dados.Territorios) { <option value="@t.Id">@NomeTerritorio(t)</option> }
+            </select></label>
+            <label class="check"><input type="checkbox" @bind="clienteAtivo" /> Ativo</label>
+            <button>Salvar cliente</button>
+            <button type="button" @onclick="NovoCliente">Novo</button>
+        </form>
+        <form @onsubmit="GravarVisita" @onsubmit:preventDefault>
+            <h3>Posição no roteiro</h3>
+            <label>Cliente <select @bind="clienteVisita"><option value="@Guid.Empty">Selecione</option>
+                @foreach (var c in Dados.Clientes.Where(c => c.Ativo)) { <option value="@c.Id">@c.Nome</option> }
+            </select></label>
+            <label>Dia da semana <select @bind="dia">
+                @foreach (var d in Enum.GetValues<DayOfWeek>())
+                { <option value="@d">@Dias[(int)d]</option> }
+            </select></label>
+            <label>Sequência <input required type="number" min="1" @bind="sequencia" /></label>
+            <button>Salvar posição</button>
+            <button type="button" @onclick="NovaVisita">Nova posição</button>
+        </form>
+    </div>
+    <ul>@foreach (var c in Dados.Clientes)
+        { <li>@c.Nome · @(c.Ativo ? "Ativo" : "Inativo") <button @onclick="() => EditarCliente(c)">Editar</button></li> }
+    </ul>
+    <ul>@foreach (var v in Dados.Visitas.OrderBy(v => v.Dia).ThenBy(v => v.Sequencia))
+        {
+            <li>@Dias[(int)v.Dia] · @v.Sequencia · @Dados.Clientes.FirstOrDefault(c => c.Id == v.ClienteId)?.Nome
+                <button @onclick="() => EditarVisita(v)">Editar</button>
+                <button @onclick="() => RemoverVisita(v)">Remover</button>
+            </li>
+        }
+    </ul>
+</section>
+@code {
+    [Parameter, EditorRequired] public Painel Dados { get; set; } = null!;
+    [Parameter, EditorRequired] public Func<string, object, Task> Salvar { get; set; } = null!;
+    private static readonly string[] Dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+    private string uf = "", estado = "", cidade = "", grupo = "", vendedor = "", email = "", senha = "", trecho = "";
+    private string empresa = "", documento = "", emailCliente = "", telefone = "", endereco = "";
+    private Guid estadoId, cidadeId, vendedorId, territorioId, responsavelId, clienteId, territorioCliente, clienteVisita, visitaId;
+    private bool vendedorAtivo = true, clienteAtivo = true;
+    private DayOfWeek dia = DayOfWeek.Monday;
+    private int sequencia = 10;
+
+    private string NomeTerritorio(Territorio t) => $"{Dados.Cidades.FirstOrDefault(c => c.Id == t.CidadeId)?.Nome} · {t.Nome}";
+    private static Guid Id(Guid id) => id == Guid.Empty ? Guid.NewGuid() : id;
+    private async Task GravarVendedor()
+    {
+        vendedorId = Id(vendedorId);
+        await Salvar("vendedores", new Vendedor(vendedorId, vendedor, email, vendedorAtivo)
+            { Senha = string.IsNullOrEmpty(senha) ? null : senha });
+        senha = "";
+    }
+    private void EditarVendedor(Vendedor v) => (vendedorId, vendedor, email, vendedorAtivo, senha) = (v.Id, v.Nome, v.Email, v.Ativo, "");
+    private void NovoVendedor() => (vendedorId, vendedor, email, vendedorAtivo, senha) = (Guid.Empty, "", "", true, "");
+    private Task GravarTerritorio()
+    {
+        territorioId = Id(territorioId);
+        return Salvar("territorios", new Territorio(territorioId, cidadeId, trecho, responsavelId));
+    }
+    private void EditarTerritorio(Territorio t) => (territorioId, cidadeId, trecho, responsavelId) = (t.Id, t.CidadeId, t.Nome, t.VendedorId);
+    private void NovoTerritorio() => (territorioId, cidadeId, trecho, responsavelId) = (Guid.Empty, Guid.Empty, "", Guid.Empty);
+    private Task GravarCliente()
+    {
+        clienteId = Id(clienteId);
+        return Salvar("clientes", new Cliente(clienteId, territorioCliente, empresa, documento, emailCliente, telefone, endereco, clienteAtivo));
+    }
+    private void EditarCliente(Cliente c) => (clienteId, territorioCliente, empresa, documento, emailCliente, telefone, endereco, clienteAtivo)
+        = (c.Id, c.TerritorioId, c.Nome, c.Documento, c.Email, c.Telefone, c.Endereco, c.Ativo);
+    private void NovoCliente() => (clienteId, territorioCliente, empresa, documento, emailCliente, telefone, endereco, clienteAtivo)
+        = (Guid.Empty, Guid.Empty, "", "", "", "", "", true);
+    private Task GravarVisita() => Salvar("visitas", new Visita(
+        visitaId != Guid.Empty ? visitaId :
+            Dados.Visitas.FirstOrDefault(v => v.ClienteId == clienteVisita && v.Dia == dia)?.Id ?? Guid.NewGuid(),
+        clienteVisita, dia, sequencia));
+    private void EditarVisita(Visita v) => (visitaId, clienteVisita, dia, sequencia) = (v.Id, v.ClienteId, v.Dia, v.Sequencia);
+    private void NovaVisita() => (visitaId, clienteVisita, dia, sequencia) = (Guid.Empty, Guid.Empty, DayOfWeek.Monday, 10);
+    private async Task RemoverVisita(Visita v)
+    {
+        await Salvar($"visitas/{v.Id}/remover", new { });
+        if (visitaId == v.Id) NovaVisita();
+    }
+}
